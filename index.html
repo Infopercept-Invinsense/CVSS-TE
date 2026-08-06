@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CVSS-TE · Threat Intelligence</title>
+
+<!-- Security Headers -->
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
+
+<!-- Content Security Policy -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://www.google-analytics.com https://www.cisa.gov https://raw.githubusercontent.com; font-src 'self' https://fonts.gstatic.com; base-uri 'self'; form-action 'self'">
+
+<!-- Meta tags for SEO and social sharing -->
+<meta name="description" content="CVSS-TE: Real-time vulnerability intelligence dashboard with threat-enhanced scoring, CISA KEVs, and EPSS insights.">
+<meta name="keywords" content="CVSS, vulnerability scoring, cybersecurity, threat intelligence, CVE dashboard, CISA KEV">
+<meta property="og:title" content="CVSS-TE Threat Intelligence Dashboard">
+<meta property="og:description" content="Real-time vulnerability intelligence with threat-enhanced scoring">
+<meta property="og:url" content="https://kston83.github.io/cvss-te/">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<!-- Google Analytics GA4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27RZTCLPTE"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-27RZTCLPTE', { 'anonymize_ip': true });
+</script>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<!-- External Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous"></script>
+
+<!-- Design System -->
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="dark">
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-mark">TE</div>
+      <div>
+        <span class="brand-name">CVSS-TE</span>
+        <span class="brand-sub">Threat Intelligence</span>
+      </div>
+    </div>
+    <nav class="navtabs" id="navtabs">
+      <button class="navtab active" data-route="dashboard">Dashboard</button>
+      <button class="navtab" data-route="lookup">Lookup</button>
+      <button class="navtab" data-route="about">Methodology</button>
+    </nav>
+    <div class="topbar-meta">
+      <span class="meta-pill"><span class="meta-dot"></span><span id="meta-count">—</span> CVEs</span>
+      <span class="meta-pill">Updated <span id="meta-updated">—</span></span>
+      <button class="icon-btn" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+        <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<!-- ── Dashboard ─────────────────────────── -->
+<section class="page" id="view-dashboard">
+  <div class="page-head">
+    <div>
+      <div class="page-eyebrow">Threat landscape</div>
+      <h1 class="page-title">What's actively exploited, today</h1>
+      <p class="page-sub">CVSS-TE adjusts base scores with real-world exploit signals — active exploitation, public proof-of-concept, and exploit quality — to prioritize what defenders act on first.</p>
+    </div>
+  </div>
+
+  <section class="stats" id="stats"><!-- filled by JS --></section>
+
+  <section class="cols">
+    <div class="panel" id="panel-kev">
+      <div class="panel-head">
+        <div class="panel-title">
+          <span class="dot crit"></span>
+          CISA Known Exploited
+          <span class="count" id="count-kev">—</span>
+        </div>
+        <div class="panel-actions">
+          <div class="seg" data-seg="kev">
+            <button class="active" data-sort="date_desc">Recent</button>
+            <button data-sort="cvss-te_desc">Severity</button>
+            <button data-sort="epss_desc">EPSS</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel-body" id="list-kev"></div>
+    </div>
+
+    <div class="panel" id="panel-emerging">
+      <div class="panel-head">
+        <div class="panel-title">
+          <span class="dot high"></span>
+          Emerging threats
+          <span class="count" id="count-emerging">—</span>
+        </div>
+        <div class="panel-actions">
+          <div class="seg" data-seg="emerging">
+            <button class="active" data-days="90">90d</button>
+            <button data-days="30">30d</button>
+            <button data-days="7">7d</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel-body" id="list-emerging"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div class="panel-title">
+        <span class="dot med"></span>
+        Recently published
+        <span class="count" id="count-recent">—</span>
+      </div>
+      <div class="panel-actions">
+        <div class="seg" data-seg="recent">
+          <button data-days="7">7d</button>
+          <button class="active" data-days="30">30d</button>
+          <button data-days="90">90d</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-body" id="list-recent"></div>
+  </section>
+</section>
+
+<!-- ── Lookup ─────────────────────────── -->
+<section class="page hidden" id="view-lookup">
+  <div class="page-head">
+    <div>
+      <div class="page-eyebrow">Lookup</div>
+      <h1 class="page-title">Search and filter</h1>
+      <p class="page-sub">Search by CVE ID, vendor, or keyword. Filter by severity, exploitation status, or exploit source to narrow to what matters.</p>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--fg-subtle)"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <input id="search-input" placeholder="CVE-2024-..., Ivanti, SharePoint, buffer overflow..." autocomplete="off" />
+      <span class="kbd">/</span>
+    </div>
+    <button class="btn" id="btn-export" title="Export current results to CSV">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
+    <button class="btn" id="btn-clear">Clear</button>
+  </div>
+
+  <div class="filterbar" id="filterbar">
+    <button class="filter-pill active" data-filter="all">All</button>
+    <button class="filter-pill" data-filter="crit"><span class="dot crit"></span>Critical</button>
+    <button class="filter-pill" data-filter="high"><span class="dot high"></span>High</button>
+    <button class="filter-pill" data-filter="med"><span class="dot med"></span>Medium</button>
+    <button class="filter-pill" data-filter="low"><span class="dot low"></span>Low</button>
+    <span class="filter-divider"></span>
+    <button class="filter-pill" data-filter="kev">KEV only</button>
+    <button class="filter-pill" data-filter="exploited">Has exploit code</button>
+    <button class="filter-pill" data-filter="epss">EPSS ≥ 30%</button>
+  </div>
+
+  <div class="panel">
+    <div class="result-head">
+      <div class="result-count"><span class="mono" id="result-count">0</span> results</div>
+      <div>
+        Sort:
+        <select class="sort-select" id="sort-select">
+          <option value="cvss-te_desc">CVSS-TE ↓</option>
+          <option value="cvss-te_asc">CVSS-TE ↑</option>
+          <option value="date_desc">Date ↓</option>
+          <option value="date_asc">Date ↑</option>
+          <option value="epss_desc">EPSS ↓</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-body" id="list-lookup"></div>
+  </div>
+</section>
+
+<!-- ── About / Methodology ─────────────── -->
+<section class="page hidden" id="view-about">
+  <div class="page-head">
+    <div>
+      <div class="page-eyebrow">Methodology</div>
+      <h1 class="page-title">From base CVSS to threat-enriched</h1>
+      <p class="page-sub">Standard CVSS scores quantify theoretical impact. CVSS-TE layers on real-world exploit context — what's actually weaponized, how reliably, and from how many sources — to produce a score that reflects current threat reality.</p>
+    </div>
+  </div>
+
+  <section class="cols-3" style="margin-bottom:32px">
+    <div class="meth-card">
+      <div class="meth-step">01 · Base</div>
+      <h3>Theoretical impact</h3>
+      <p>Standard CVSS v3.1 / v4.0 base score. Captures what an exploit <em>could</em> do — attack vector, complexity, privileges, scope, CIA impact. No exploit context. Every <span class="meth-code">9.8</span> looks identical, regardless of whether anyone has actually written exploit code.</p>
+    </div>
+    <div class="meth-card">
+      <div class="meth-step">02 · Threat (BT)</div>
+      <h3>Exploit maturity overlay</h3>
+      <p>Apply the temporal exploit code maturity metric. Adjusts base downward when no exploit exists (<span class="meth-code">E:U</span>), and toward base when active exploitation is observed (<span class="meth-code">E:A</span>). Pulled from CISA KEV, VulnCheck KEV, and source presence.</p>
+    </div>
+    <div class="meth-card">
+      <div class="meth-step">03 · Enriched (TE)</div>
+      <h3>Quality weighting</h3>
+      <p>Overlay exploit <em>quality</em> across reliability, ease of use, and effectiveness — measured per source (ExploitDB, Metasploit, Nuclei, GitHub PoCs). A weaponized, reliable, easy exploit pushes TE above base. A flaky PoC pulls it below.</p>
+    </div>
+  </section>
+
+  <div class="panel" style="margin-bottom:24px">
+    <div class="panel-head"><div class="panel-title">Formula</div></div>
+    <div style="padding: 28px">
+      <div class="formula-block">
+        <span class="var">CVSS-TE</span>
+        <span class="op">=</span>
+        <span class="var">CVSS-BT</span>
+        <span class="op">×</span>
+        <span class="var">(1 + Q × M)</span>
+        <span class="note">where Q = quality_score (0–1) and M = maturity weight (E:U → −0.10, E:P → +0.05, E:F → +0.10, E:H → +0.15, E:A → +0.20), bounded to [0.4, 10.0]</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:24px">
+    <div class="panel-head"><div class="panel-title">Worked example · CVE-2024-3400 (Palo Alto GlobalProtect)</div></div>
+    <div style="padding: 24px">
+      <div class="worked-example">
+        <div class="worked-step">
+          <div class="label">Base</div>
+          <div class="num">10.0</div>
+          <div class="desc">Unauth RCE, scope changed, full CIA impact</div>
+        </div>
+        <div class="worked-arrow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+        <div class="worked-step">
+          <div class="label">CVSS-BT</div>
+          <div class="num">9.4</div>
+          <div class="desc">E:A applied — actively exploited in CISA KEV</div>
+        </div>
+        <div class="worked-arrow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+        <div class="worked-step final">
+          <div class="label">CVSS-TE</div>
+          <div class="num">9.8</div>
+          <div class="desc">Q=0.93 across 5 sources lifts BT toward ceiling</div>
+        </div>
+      </div>
+      <div style="margin-top: 24px; font-size: 13px; color: var(--fg-muted); line-height: 1.6">
+        Five exploit sources contribute: ExploitDB, Metasploit, Nuclei template, public GitHub PoCs, and CISA KEV listing. Reliability 0.95, ease-of-use 0.90, effectiveness 0.95 → quality_score 0.93. Maturity weight +0.20 (E:A). Result: <span class="mono" style="color:var(--accent)">9.4 × (1 + 0.93 × 0.20) ≈ 9.4 × 1.186 ≈ 9.8</span>.
+      </div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Exploit maturity weights</div></div>
+      <table class="table">
+        <thead><tr><th>Code</th><th>Meaning</th><th style="text-align:right">Weight</th></tr></thead>
+        <tbody>
+          <tr><td class="code">E:U</td><td>Unproven — no public exploit</td><td class="mono" style="text-align:right;color:var(--ok)">−0.10</td></tr>
+          <tr><td class="code">E:P</td><td>Proof-of-concept — non-weaponized</td><td class="mono" style="text-align:right">+0.05</td></tr>
+          <tr><td class="code">E:F</td><td>Functional — works under conditions</td><td class="mono" style="text-align:right">+0.10</td></tr>
+          <tr><td class="code">E:H</td><td>High — reliable, weaponized</td><td class="mono" style="text-align:right">+0.15</td></tr>
+          <tr><td class="code">E:A</td><td>Attacked — observed in the wild</td><td class="mono" style="text-align:right;color:var(--crit)">+0.20</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Quality sub-factors</div></div>
+      <table class="table">
+        <thead><tr><th>Factor</th><th>What it measures</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Reliability</strong></td><td>Does the exploit work consistently across target versions?</td></tr>
+          <tr><td><strong>Ease of use</strong></td><td>Skill required — script-kiddie executable vs. requires exploit dev?</td></tr>
+          <tr><td><strong>Effectiveness</strong></td><td>What does success grant — RCE, info-disclosure, DoS?</td></tr>
+          <tr><td><strong>Quality score</strong></td><td>Weighted blend of the three, normalized 0–1.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:24px">
+    <div class="panel-head"><div class="panel-title">Signals consumed</div></div>
+    <div style="padding: 22px 26px">
+      <div class="src-grid">
+        <div class="src-card on"><div class="src-name">CISA KEV</div><div class="src-state">Active</div></div>
+        <div class="src-card on"><div class="src-name">VulnCheck</div><div class="src-state">KEV</div></div>
+        <div class="src-card on"><div class="src-name">EPSS</div><div class="src-state">Score</div></div>
+        <div class="src-card on"><div class="src-name">ExploitDB</div><div class="src-state">Code</div></div>
+        <div class="src-card on"><div class="src-name">Metasploit</div><div class="src-state">Module</div></div>
+        <div class="src-card on"><div class="src-name">Nuclei</div><div class="src-state">Template</div></div>
+      </div>
+      <p style="font-size: 12.5px; color: var(--fg-muted); margin-top: 16px; line-height: 1.6">Daily ingest from public feeds. Each source contributes to exploit_sources count and feeds quality sub-factors. A CVE present in 4+ sources with E:A maturity is the strongest threat signal in the model.</p>
+    </div>
+  </div>
+
+  <div style="margin-top: 32px; display: flex; gap: 12px;">
+    <a class="btn" href="https://github.com/kston83/cvss-te/blob/main/whitepaper.md" target="_blank" rel="noopener noreferrer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+      Read Whitepaper
+    </a>
+    <a class="btn" href="https://github.com/kston83/cvss-te" target="_blank" rel="noopener noreferrer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      View on GitHub
+    </a>
+  </div>
+</section>
+</main>
+
+<!-- Modal root -->
+<div id="modal-root"></div>
+
+<!-- Privacy Notice -->
+<div style="text-align:center; padding: 24px; font-size: 11px; color: var(--fg-faint);">
+  This site uses analytics to improve the tool. No personally identifiable information is collected.
+</div>
+
+<!-- Config (global, non-module) -->
+<script src="js/config.js"></script>
+<!-- App (ES module) -->
+<script type="module" src="js/app.js"></script>
+
+<script>
+  // Apply saved theme on boot (before module loads)
+  try {
+    const saved = localStorage.getItem('cvsste.theme') || 'dark';
+    document.body.setAttribute('data-theme', saved);
+  } catch(_) {
+    document.body.setAttribute('data-theme', 'dark');
+  }
+</script>
+</body>
+</html>

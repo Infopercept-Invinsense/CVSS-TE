@@ -1,0 +1,96 @@
+name: Update Vulnerability Data
+on:
+  schedule:
+    - cron: '0 8,20 * * *'  # Run at 12:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  update-vulnerability-data:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r code/requirements.txt
+
+    - name: Set up Git configuration
+      run: |
+        git config --global user.name 'GitHub Actions Bot'
+        git config --global user.email 'actions@github.com'
+
+    - name: Run NVD Processing Script
+      env:
+        VULNCHECK_API_KEY: ${{ secrets.VULNCHECK_API_KEY }}
+      run: python code/process_nvd.py
+
+    - name: Cleanup temporary NVD files
+      run: |
+        echo "🧹 Cleaning up temporary NVD JSON files..."
+        rm -f nvdcve-2.0-*.json
+        rm -f *.json.gz
+        echo "✅ Cleanup complete"
+
+    - name: Check file sizes
+      run: |
+        echo "📊 Checking output file sizes..."
+        if [ -f cvss-te.csv ]; then
+          CSV_SIZE=$(du -h cvss-te.csv | cut -f1)
+          CSV_SIZE_MB=$(du -m cvss-te.csv | cut -f1)
+          echo "cvss-te.csv: $CSV_SIZE (${CSV_SIZE_MB}MB)"
+          
+          if [ $CSV_SIZE_MB -gt 90 ]; then
+            echo "⚠️  WARNING: File is close to GitHub's 100MB limit!"
+          elif [ $CSV_SIZE_MB -gt 50 ]; then
+            echo "⚠️  File exceeds GitHub's 50MB recommendation"
+          fi
+        fi
+
+    - name: Commit and push if there are changes
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -e
+        TAG="v$(date +%Y%m%d%H%M%S)"
+        
+        echo "TAG=$TAG" >> $GITHUB_ENV
+
+        # Only add specific files, not everything
+        # This prevents committing the large NVD JSON source files
+        git add cvss-te.csv || true
+        git add data/ || true
+        git add code/last_run.txt || true
+        
+        # Check if there are actually changes to commit
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+          exit 0
+        fi
+        
+        git commit -m "Updated CVSS-TE data $(date +%Y-%m-%d)"
+        git push origin HEAD:main
+        
+        # Create a new tag
+        git tag -a "$TAG" -m "Updated CVSS-TE data $(date +%Y-%m-%d)"
+        git push origin "$TAG"
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.TAG }}
+        release_name: Release ${{ env.TAG }}
+        draft: false
+        prerelease: false

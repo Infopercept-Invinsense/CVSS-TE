@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Redirecting to CVSS-TE Lookup…</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'none'; img-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
+<script>
+  // Redirect lookup.html to index.html#/lookup, preserving ?cve= parameter
+  const params = new URLSearchParams(window.location.search);
+  const cve = params.get('cve');
+  const target = cve
+    ? './?cve=' + encodeURIComponent(cve) + '#/lookup'
+    : './#/lookup';
+  window.location.replace(target);
+</script>
+<noscript>
+  <meta http-equiv="refresh" content="0;url=./#/lookup">
+</noscript>
+</head>
+<body>
+  <p>Redirecting to <a href="./#/lookup">CVSS-TE Lookup</a>…</p>
+</body>
+</html>
